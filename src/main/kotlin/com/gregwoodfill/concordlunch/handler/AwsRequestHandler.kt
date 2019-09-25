@@ -68,7 +68,7 @@ class LunchRequestHandler :  RequestHandler {
         val entrees = LunchService().getEntrees(date)
         println("entrees: $entrees")
         val entreesAsString = entrees.foldIndexed("") { index, acc, s ->
-            "${acc}<break time='1s'/>Option ${index+1}. $s "
+            "${acc}Option ${index+1}. $s. "
         }
         val speechText = "<speak>Lunch options at concord are $entreesAsString</speak>"
         return input.responseBuilder.withSpeech(speechText).build()
