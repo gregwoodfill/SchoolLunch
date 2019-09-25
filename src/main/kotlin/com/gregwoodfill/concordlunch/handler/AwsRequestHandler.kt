@@ -60,7 +60,7 @@ class LunchRequestHandler :  RequestHandler {
         println("got ${slot?.value}")
         val date = when (slot?.value) {
             null -> {
-                if(LocalTime.now().isAfter(LocalTime.of(10, 0))) {
+                if(LocalTime.now().isAfter(LocalTime.of(12, 0))) {
                     LocalDate.now().plusDays(1)
                 }
                 else {
