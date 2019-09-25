@@ -5,11 +5,11 @@ import com.amazon.ask.Skills
 import com.amazon.ask.dispatcher.request.handler.HandlerInput
 import com.amazon.ask.dispatcher.request.handler.RequestHandler
 import com.amazon.ask.model.*
+import com.amazon.ask.model.ui.Card
 import com.amazon.ask.request.Predicates.intentName
 import com.amazon.ask.request.Predicates.requestType
 import com.amazon.ask.request.handler.GenericRequestHandler
 import com.gregwoodfill.concordlunch.LunchService
-import java.time.ZonedDateTime
 import java.util.*
 import java.util.Optional
 import com.amazon.ask.request.Predicates.intentName
@@ -17,7 +17,7 @@ import com.sun.corba.se.impl.protocol.giopmsgheaders.MessageBase.getRequestId
 import com.amazon.ask.request.Predicates.requestType
 import org.slf4j.LoggerFactory
 import com.amazon.ask.request.Predicates.intentName
-import java.time.LocalDate
+import java.time.*
 import java.time.format.DateTimeFormatter
 
 
@@ -31,7 +31,7 @@ class AwsRequestHandler : SkillStreamHandler(lunchSkill()) {
                         LunchRequestHandler(),
                         HelpIntentHandler(),
                         SessionEndedRequestHandler(),
-                        DefaultHandler())
+                        FallBackIntentHandler())
                 .build()
     }
 
@@ -59,7 +59,14 @@ class LunchRequestHandler :  RequestHandler {
         val slot = intent.slots.get("on_date")
         println("got ${slot?.value}")
         val date = when (slot?.value) {
-            null -> LocalDate.now()
+            null -> {
+                if(LocalTime.now().isAfter(LocalTime.of(10, 0))) {
+                    LocalDate.now().plusDays(1)
+                }
+                else {
+                    LocalDate.now()
+                }
+            }
             else -> LocalDate.parse(slot.value, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
         }
 
@@ -67,11 +74,18 @@ class LunchRequestHandler :  RequestHandler {
 
         val entrees = LunchService().getEntrees(date)
         println("entrees: $entrees")
-        val entreesAsString = entrees.foldIndexed("") { index, acc, s ->
-            "${acc}Option ${index+1}. $s. "
+
+        val speechText = when {
+            date.isBefore(LocalDate.now()) -> "I can't get a menu in the for the date: $date."
+            date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY -> "I can only get menus for school days."
+            entrees.isEmpty() -> "I'm sorry, I couldn't find a menu, it may be a holiday."
+            else -> "Lunch at Concord elementary for ${date.dayOfWeek}, ${date.month} ${date.dayOfMonth} ${date.year}. " + entrees.foldIndexed("") { index, acc, s ->
+                "${acc}Option ${index+1}. $s. "
+            }
         }
-        val speechText = "<speak>Lunch options at concord are $entreesAsString</speak>"
-        return input.responseBuilder.withSpeech(speechText).build()
+        return input.responseBuilder
+                .withSpeech(speechText)
+                .build()
     }
 
 }
@@ -140,17 +154,6 @@ class SessionEndedRequestHandler : RequestHandler {
 
 }
 
-class DefaultHandler : RequestHandler {
-    override fun canHandle(input: HandlerInput): Boolean {
-        return true
-    }
-
-    override fun handle(input: HandlerInput): Optional<Response> {
-        return input.responseBuilder.withSpeech("good bye").build()
-    }
-
-}
-
 
 class FallBackIntentHandler : RequestHandler {
 
@@ -159,10 +162,9 @@ class FallBackIntentHandler : RequestHandler {
     }
 
     override fun handle(input: HandlerInput): Optional<Response> {
-        val speechText = "Sorry, I don't know that. Would you like an airplane fact?"
+        val speechText = "Sorry, I don't know that. Would you like to ask what's for lunch today?"
         return input.responseBuilder
                 .withSpeech(speechText)
-                .withSimpleCard("Airplane Facts", speechText)
                 .withReprompt(speechText)
                 .build()
     }

@@ -17,21 +17,22 @@ class LunchService {
 
     fun getEntrees(date: LocalDate): List<String> {
         val formatted = DateTimeFormatter.ofPattern("yyyy/MM/dd").format(date)
-        val (req, res, result) = Fuel.get("https://edinaschools.nutrislice.com/menu/api/weeks/school/concord/menu-type/lunch/$formatted/")
+        val url = "https://edinaschools.nutrislice.com/menu/api/weeks/school/concord/menu-type/lunch/$formatted/"
+        println("calling get on $url")
+        val (req, res, result) = Fuel.get(url)
                 .header("Accept" to "application/json")
                 .responseString()
 
         when(result) {
             is Result.Success -> {
                 val jsonString = result.get()
-
                 val tree = jacksonObjectMapper().readTree(jsonString.toByteArray())
 
                 val dates = tree.get("days")
                 return dates.find { it["date"].textValue() == date.toString() }
                         ?.get("menu_items")?.filter { it["category"]?.textValue() == "entree" }?.map { it["food"]["name"].textValue() }?: listOf()
             }
-            else ->{
+            else -> {
                     log.error("error getting lunches, $res")
                     throw IllegalStateException("error getting lunches")
             }
